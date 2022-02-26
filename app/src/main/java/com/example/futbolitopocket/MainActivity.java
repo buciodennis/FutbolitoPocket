@@ -16,26 +16,28 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.View;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
-    private final int anchoPelota = 130, anchoPorteria = 330;
-    private final int alturaPelota = 130, alturaPorteria = 300;
+
     //x
     private float velocidadX = 0.0f, posX, xMax, acelerometroX;
     //y
     private float velocidadY = 0.0f, posY, yMax, acelerometroY;
+
     private float porteriaInicio, porteriaFinal;
     private float frameTime = 0.666f;
-
-
+    private final int anchoPelota = 130, anchoPorteria = 330;
+    private final int alturaPelota = 130, alturaPorteria = 300;
     private int scoreA = 0, scoreB = 0;
     private boolean esGol = false;
 
-    private Bitmap pelota, porteriaA, porteriaB;
+    private Bitmap pelota, porteriaA, porteriaB, cancha;
+    DisplayMetrics metrics; int width = 0, height = 0;
 
     private SensorManager sensorManager;
     private Sensor sensorACCELEROMETER;
@@ -66,12 +68,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         porteriaInicio = ((xMax + anchoPelota) / 2) - (anchoPorteria / 2);
         porteriaFinal = porteriaInicio + anchoPorteria;
 
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        sensorACCELEROMETER = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
     }
 
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
-
+        if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER && !esGol) {
+            acelerometroX = sensorEvent.values[0];
+            acelerometroY = -sensorEvent.values[1];
+            actualizarPosicion();
+        }
     }
 
     @Override
@@ -82,12 +90,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onResume() {
         super.onResume();
+        if(sensorACCELEROMETER!=null){
+            sensorManager.registerListener(this, sensorACCELEROMETER, SensorManager.SENSOR_DELAY_GAME);
+        }
 
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        if(sensorACCELEROMETER!=null){
+            sensorManager.unregisterListener(this);
+        }
 
     }
 
@@ -170,11 +184,47 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
 
-
     private class MiVista extends View {
 
         public MiVista(Context context) {
             super(context);
+            metrics = new DisplayMetrics();
+            getWindowManager().getDefaultDisplay().getMetrics(metrics);
+            height = metrics.heightPixels;
+            width = metrics.widthPixels;
+
+            //Creacion de la pelota
+            Bitmap pelotaSrc = BitmapFactory.decodeResource(getResources(), R.drawable.pelota);
+            pelota = Bitmap.createScaledBitmap(pelotaSrc, anchoPelota, alturaPelota, true);
+
+            //Creacion de las porterias
+            Bitmap porteriaSrcS = BitmapFactory.decodeResource(getResources(), R.drawable.porteria_up);
+            porteriaA = Bitmap.createScaledBitmap(porteriaSrcS, anchoPorteria, alturaPorteria, true);
+            Bitmap porteriaSrcI = BitmapFactory.decodeResource(getResources(), R.drawable.porteria);
+            porteriaB = Bitmap.createScaledBitmap(porteriaSrcI, anchoPorteria, alturaPorteria, true);
+
+            //Creacion del fondo
+            Bitmap canchaSrc = BitmapFactory.decodeResource(getResources(), R.drawable.cancha);
+            cancha = Bitmap.createScaledBitmap(canchaSrc, width, height-50, true);
+            Log.d("Tamaños", height + " " + width);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            canvas.drawBitmap(cancha, 0, -50, null);
+
+
+            //Dibujar porterias
+            canvas.drawBitmap(porteriaA, porteriaInicio, -50, null);
+            canvas.drawBitmap(porteriaB, porteriaInicio, yMax-30 + alturaPelota - 200, null);
+
+            //Dibujar pelota
+            canvas.drawBitmap(pelota, posX, posY, null);
+
+            //Dibujar cancha
+            canvas.drawBitmap(pelota, posX, posY, null);
+
+            invalidate();
         }
     }
 
